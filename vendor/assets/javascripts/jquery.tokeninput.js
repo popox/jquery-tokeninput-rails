@@ -1,6 +1,6 @@
 /*
  * jQuery Plugin: Tokenizing Autocomplete Text Entry
- * Version 1.6.1
+ * Version 1.6.2 (modified by popox github.com/popox)
  *
  * Copyright (c) 2009 James Smith (http://loopj.com)
  * Licensed jointly under the GPL and MIT licenses,
@@ -146,8 +146,8 @@ var methods = {
             $(this).data("tokenInputObject", new $.TokenList(this, url_or_data_or_function, settings));
         });
     },
-    clear: function() {
-        this.data("tokenInputObject").clear();
+    clear: function(options) {
+        this.data("tokenInputObject").clear(options);
         return this;
     },
     add: function(item) {
@@ -168,6 +168,17 @@ var methods = {
     setOptions: function(options){
         $(this).data("settings", $.extend({}, $(this).data("settings"), options || {}));
         return this;
+    },
+    destroy: function () {
+        if(this.data("tokenInputObject")){
+            this.data("tokenInputObject").clear();
+            var tmpInput = this;
+            var closest = this.parent();
+            closest.empty();
+            tmpInput.show();
+            closest.append(tmpInput);
+            return tmpInput;
+        }
     }
 };
 
@@ -471,10 +482,10 @@ $.TokenList = function (input, url_or_data, settings) {
     // Public functions
     //
 
-    this.clear = function() {
+    this.clear = function(options) {
         token_list.children("li").each(function() {
             if ($(this).children("input").length === 0) {
-                delete_token($(this));
+                delete_token($(this), options);
             }
         });
     };
@@ -551,7 +562,7 @@ $.TokenList = function (input, url_or_data, settings) {
         // Get width left on the current line
         var width_left = token_list.width() - input_box.offset().left - token_list.offset().left;
         // Enter new content into resizer and resize input accordingly
-        input_resizer.html(_escapeHTML(input_val));
+        input_resizer.html(_escapeHTML(input_val) || _escapeHTML(settings.placeholder));
         // Get maximum width, minimum the size of input and maximum the widget's width
         input_box.width(Math.min(token_list.width(),
                                  Math.max(width_left, input_resizer.width() + 30)));
@@ -723,7 +734,7 @@ $.TokenList = function (input, url_or_data, settings) {
     }
 
     // Delete a token from the token list
-    function delete_token (token) {
+    function delete_token (token, options) {
         // Remove the id from the saved list
         var token_data = $.data(token.get(0), "tokeninput");
         var callback = $(input).data("settings").onDelete;
@@ -736,7 +747,9 @@ $.TokenList = function (input, url_or_data, settings) {
         selected_token = null;
 
         // Show the input box and give it focus again
-        focus_with_timeout(input_box);
+        if (!options || options.focus === null || options.focus) {
+            focus_with_timeout(input_box);
+        }
 
         // Remove this token from the saved list
         saved_tokens = saved_tokens.slice(0,index).concat(saved_tokens.slice(index+1));
@@ -754,7 +767,9 @@ $.TokenList = function (input, url_or_data, settings) {
             input_box
                 .show()
                 .val("");
-            focus_with_timeout(input_box);
+            if (!options || options.focus === null || options.focus) {
+                focus_with_timeout(input_box);
+            }
         }
 
         // Execute the onDelete callback if defined
@@ -785,9 +800,9 @@ $.TokenList = function (input, url_or_data, settings) {
         dropdown
             .css({
                 position: "absolute",
-                top: $(token_list).offset().top + $(token_list).height(),
-                left: $(token_list).offset().left,
-                width: $(token_list).width(),
+                top: token_list.offset().top + token_list.outerHeight(),
+                left: token_list.offset().left,
+                width: token_list.width(),
                 'z-index': $(input).data("settings").zindex
             })
             .show();
@@ -974,6 +989,11 @@ $.TokenList = function (input, url_or_data, settings) {
                   }
                 };
 
+                // Provide a beforeSend callback
+                if (settings.onSend) {
+                  settings.onSend(ajax_params);
+                }
+
                 // Make the request
                 $.ajax(ajax_params);
             } else if($(input).data("settings").local_data) {
@@ -1042,3 +1062,4 @@ $.TokenList.Cache = function (options) {
     };
 };
 }(jQuery));
+
